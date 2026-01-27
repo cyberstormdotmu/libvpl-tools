@@ -218,7 +218,7 @@ jobs:
             --user "${{ vars.AD_USR }}" \
             --password "${{ secrets.AD_PW }}" \
             --email "${{ vars.AD_USR_EMAIL }}" \
-            --stream "${{ vars.COVERITY_STREAM }}" \
+            --stream "${{ vars.COVERITY_STREAM_LINUX }}" \
             --project "${{ vars.COVERITY_PROJECT }}" \
             --project-name "oneVPL" \
             --dir "int_dir" \
@@ -265,7 +265,7 @@ jobs:
             --user "${{ vars.AD_USR }}" `
             --password "${{ secrets.AD_PW }}" `
             --email "${{ vars.AD_USR_EMAIL }}" `
-            --stream "${{ vars.COVERITY_STREAM }}" `
+            --stream "${{ vars.COVERITY_STREAM_WINDOWS }}" `
             --project "${{ vars.COVERITY_PROJECT }}" `
             --project-name "oneVPL" `
             --dir "int_dir" `
