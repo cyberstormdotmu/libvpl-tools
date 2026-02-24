@@ -86,6 +86,18 @@ mfxStatus CVAAPIDeviceX11::Init(mfxHDL hWindow,
 }
 
 void CVAAPIDeviceX11::Close(void) {
+    MfxLoader::Xcb_Proxy& xcblib = m_X11LibVA.GetXcbX11();
+
+    for (const auto& entry : m_pixmap_cache) {
+        xcblib.xcb_free_pixmap(m_xcbconn, entry.second);
+    }
+
+    m_pixmap_cache.clear();
+
+    if (m_xcbconn) {
+        xcblib.xcb_flush(m_xcbconn);
+    }
+
     if (m_window) {
         Display* display = VAAPI_GET_X_DISPLAY(m_X11LibVA.GetXDisplay());
         Window* window   = VAAPI_GET_X_WINDOW(m_window);
@@ -178,8 +190,12 @@ mfxStatus CVAAPIDeviceX11::RenderFrame(mfxFrameSurface1* pSurface,
         #else //\/ X11_DRI3_SUPPORT
     Window* window = VAAPI_GET_X_WINDOW(m_window);
     Window root;
-    unsigned int border, depth, stride, size, width, height;
-    int fd = 0, bpp = 0, x, y;
+    Display* display = VAAPI_GET_X_DISPLAY(m_X11LibVA.GetXDisplay());
+    unsigned int depth, stride, size, width, height;
+    int bpp, fd_handle;
+    xcb_generic_error_t* error;
+    xcb_void_cookie_t cookie;
+    xcb_pixmap_t pixmap;
 
     MfxLoader::Xcb_Proxy& xcblib               = m_X11LibVA.GetXcbX11();
     MfxLoader::XLib_Proxy& x11lib              = m_X11LibVA.GetX11();
@@ -198,74 +214,46 @@ mfxStatus CVAAPIDeviceX11::RenderFrame(mfxFrameSurface1* pSurface,
     }
 
     if (memId && memId->m_buffer_info.mem_type != VA_SURFACE_ATTRIB_MEM_TYPE_DRM_PRIME) {
-        printf("Memory type invalid!\n");
         return MFX_ERR_UNSUPPORTED;
     }
 
     if (MFX_ERR_NONE == mfx_res) {
-        x11lib.XResizeWindow(VAAPI_GET_X_DISPLAY(m_X11LibVA.GetXDisplay()),
-                             *window,
-                             pSurface->Info.CropW,
-                             pSurface->Info.CropH);
-        x11lib.XGetGeometry(VAAPI_GET_X_DISPLAY(m_X11LibVA.GetXDisplay()),
-                            *window,
-                            &root,
-                            &x,
-                            &y,
-                            &width,
-                            &height,
-                            &border,
-                            &depth);
+        x11lib.XResizeWindow(display, *window, pSurface->Info.CropW, pSurface->Info.CropH);
+        root = x11lib.XDefaultRootWindow(display);
 
-        switch (depth) {
-            case 8:
-                bpp = 8;
-                break;
-            case 15:
-            case 16:
-                bpp = 16;
-                break;
-            case 24:
-            case 32:
-                bpp = 32;
-                break;
-            default:
-                printf("Invalid depth\n");
+        width     = pSurface->Info.CropX + pSurface->Info.CropW;
+        height    = pSurface->Info.CropY + pSurface->Info.CropH;
+        stride    = memId->m_image.pitches[0];
+        size      = memId->m_buffer_info.mem_size;
+        bpp       = memId->m_image.format.bits_per_pixel;
+        depth     = (bpp == 32) ? 24 : bpp;
+        fd_handle = memId->m_buffer_info.handle;
+
+        auto it = m_pixmap_cache.find(fd_handle);
+        if (it != m_pixmap_cache.end()) {
+            pixmap = it->second;
         }
+        else {
+            pixmap = xcblib.xcb_generate_id(m_xcbconn);
+            cookie = dri3lib.xcb_dri3_pixmap_from_buffer_checked(m_xcbconn,
+                                                                 pixmap,
+                                                                 root,
+                                                                 size,
+                                                                 width,
+                                                                 height,
+                                                                 stride,
+                                                                 depth,
+                                                                 bpp,
+                                                                 fd_handle);
 
-        width  = pSurface->Info.CropX + pSurface->Info.CropW;
-        height = pSurface->Info.CropY + pSurface->Info.CropH;
-
-        stride = memId->m_image.pitches[0];
-        size   = PAGE_ALIGN(stride * height);
-
-        fd = dup(memId->m_buffer_info.handle);
-        if (fd < 0) {
-            printf("Invalid fd\n");
-            return MFX_ERR_NOT_INITIALIZED;
-        }
-
-        xcb_pixmap_t pixmap = xcblib.xcb_generate_id(m_xcbconn);
-        xcb_void_cookie_t cookie;
-        xcb_generic_error_t* error;
-
-        cookie = dri3lib.xcb_dri3_pixmap_from_buffer_checked(m_xcbconn,
-                                                             pixmap,
-                                                             root,
-                                                             size,
-                                                             width,
-                                                             height,
-                                                             stride,
-                                                             depth,
-                                                             bpp,
-                                                             fd);
-        if ((error = xcblib.xcb_request_check(m_xcbconn, cookie))) {
-            printf(
-                "Failed to create xcb pixmap from the %s surface: try another color format (e.g. RGB4)\n",
-                ColorFormatToStr(pSurface->Info.FourCC));
-            free(error);
-            close(fd);
-            return MFX_ERR_INVALID_HANDLE;
+            if ((error = xcblib.xcb_request_check(m_xcbconn, cookie))) {
+                printf(
+                    "Failed to create xcb pixmap from the %s surface: try another color format (e.g. RGB4)\n",
+                    ColorFormatToStr(pSurface->Info.FourCC));
+                free(error);
+                return MFX_ERR_INVALID_HANDLE;
+            }
+            m_pixmap_cache[fd_handle] = pixmap;
         }
 
         cookie = xcbpresentlib.xcb_present_pixmap_checked(m_xcbconn,
@@ -285,16 +273,12 @@ mfxStatus CVAAPIDeviceX11::RenderFrame(mfxFrameSurface1* pSurface,
                                                           0,
                                                           0,
                                                           NULL);
+
         if ((error = xcblib.xcb_request_check(m_xcbconn, cookie))) {
             printf("Failed to present pixmap\n");
             free(error);
-            close(fd);
             return MFX_ERR_UNKNOWN;
         }
-
-        xcblib.xcb_free_pixmap(m_xcbconn, pixmap);
-        xcblib.xcb_flush(m_xcbconn);
-        close(fd);
     }
 
     return mfx_res;

@@ -393,6 +393,7 @@ public:
                                         unsigned int*,
                                         unsigned int*,
                                         unsigned int*);
+    typedef Window (*XDefaultRootWindow_type)(Display*);
         #endif // X11_DRI3_SUPPORT
     XLib_Proxy();
     ~XLib_Proxy();
@@ -406,6 +407,7 @@ public:
     const XResizeWindow_type XResizeWindow;
         #if defined(X11_DRI3_SUPPORT)
     const XGetGeometry_type XGetGeometry;
+    const XDefaultRootWindow_type XDefaultRootWindow;
         #endif // X11_DRI3_SUPPORT
 };
 

@@ -213,7 +213,8 @@ XLib_Proxy::XLib_Proxy()
           SIMPLE_LOADER_FUNCTION(XResizeWindow)
         #if defined(X11_DRI3_SUPPORT)
           ,
-          SIMPLE_LOADER_FUNCTION(XGetGeometry)
+          SIMPLE_LOADER_FUNCTION(XGetGeometry),
+          SIMPLE_LOADER_FUNCTION(XDefaultRootWindow)
         #endif // X11_DRI3_SUPPORT
 {
 }

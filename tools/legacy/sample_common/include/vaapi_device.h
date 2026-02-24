@@ -115,6 +115,7 @@ private:
     mfxU32 m_nRenderWinH;
         #if defined(X11_DRI3_SUPPORT)
     xcb_connection_t* m_xcbconn;
+    std::map<int, xcb_pixmap_t> m_pixmap_cache;
         #endif
     // no copies allowed
     CVAAPIDeviceX11(const CVAAPIDeviceX11&);
