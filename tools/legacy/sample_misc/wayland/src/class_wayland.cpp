@@ -354,24 +354,28 @@ struct wl_buffer* Wayland::CreatePrimeBuffer(uint32_t name,
                                              uint32_t format,
                                              int32_t offsets[3],
                                              int32_t pitches[3]) {
-    struct wl_buffer* buffer = NULL;
-
 #if defined(WAYLAND_LINUX_DMABUF_SUPPORT)
-    if (format == WL_DRM_FORMAT_NV12) {
-        if (NULL == m_dmabuf)
+    if (format == WL_DRM_FORMAT_NV12 || format == WL_DRM_FORMAT_ARGB8888) {
+        if (!m_dmabuf)
             return NULL;
 
-        struct zwp_linux_buffer_params_v1* dmabuf_params = NULL;
-        int i                                            = 0;
-        uint64_t modifier                                = I915_FORMAT_MOD_Y_TILED;
+        const bool is_nv12   = (format == WL_DRM_FORMAT_NV12);
+        const int num_planes = is_nv12 ? 2 : 1;
 
     #if defined(DRM_LINUX_MODIFIER_TILED4_SUPPORT)
-        if (m_requiredTiled4)
-            modifier = I915_FORMAT_MOD_4_TILED;
+        const uint64_t modifier = (is_nv12 && m_requiredTiled4) ? I915_FORMAT_MOD_4_TILED
+                                  : is_nv12                     ? I915_FORMAT_MOD_Y_TILED
+                                                                : DRM_FORMAT_MOD_LINEAR;
+    #else
+        const uint64_t modifier = is_nv12 ? I915_FORMAT_MOD_Y_TILED : DRM_FORMAT_MOD_LINEAR;
     #endif
 
-        dmabuf_params = zwp_linux_dmabuf_v1_create_params(m_dmabuf);
-        for (i = 0; i < 2; i++) {
+        struct zwp_linux_buffer_params_v1* dmabuf_params =
+            zwp_linux_dmabuf_v1_create_params(m_dmabuf);
+        if (!dmabuf_params)
+            return NULL;
+
+        for (int i = 0; i < num_planes; i++)
             zwp_linux_buffer_params_v1_add(dmabuf_params,
                                            name,
                                            i,
@@ -379,32 +383,27 @@ struct wl_buffer* Wayland::CreatePrimeBuffer(uint32_t name,
                                            pitches[i],
                                            modifier >> 32,
                                            modifier & 0xffffffff);
-        }
 
-        buffer = zwp_linux_buffer_params_v1_create_immed(dmabuf_params, width, height, format, 0);
-
+        struct wl_buffer* buffer =
+            zwp_linux_buffer_params_v1_create_immed(dmabuf_params, width, height, format, 0);
         zwp_linux_buffer_params_v1_destroy(dmabuf_params);
+        return buffer;
     }
-    else
 #endif
-    {
-        if (NULL == m_drm)
-            return NULL;
+    if (!m_drm)
+        return NULL;
 
-        buffer = wl_drm_create_prime_buffer(m_drm,
-                                            name,
-                                            width,
-                                            height,
-                                            format,
-                                            offsets[0],
-                                            pitches[0],
-                                            offsets[1],
-                                            pitches[1],
-                                            offsets[2],
-                                            pitches[2]);
-    }
-
-    return buffer;
+    return wl_drm_create_prime_buffer(m_drm,
+                                      name,
+                                      width,
+                                      height,
+                                      format,
+                                      offsets[0],
+                                      pitches[0],
+                                      offsets[1],
+                                      pitches[1],
+                                      offsets[2],
+                                      pitches[2]);
 }
 
 Wayland::~Wayland() {
