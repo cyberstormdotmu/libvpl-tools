@@ -216,6 +216,7 @@ drmRenderer::drmRenderer(int fd, mfxI32 monitorType)
           m_crtc(),
           m_connectorProperties(),
           m_crtcProperties(),
+          m_bufmgr(),
           m_overlay_wrn(true),
           m_bHdrSupport(false),
     #if defined(DRM_LINUX_HDR_SUPPORT)
@@ -624,7 +625,6 @@ uint32_t drmRenderer::getConnectorPropertyId(const char* propNameToFind) {
             id = property->prop_id;
 
         m_drmlib.drmModeFreeProperty(property);
-        property = NULL;
 
         if (id)
             break;
@@ -651,7 +651,6 @@ uint32_t drmRenderer::getConnectorPropertyValue(const char* propNameToFind) {
             value = m_connectorProperties->prop_values[i];
 
         m_drmlib.drmModeFreeProperty(property);
-        property = NULL;
 
         if (value)
             break;

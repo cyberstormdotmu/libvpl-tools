@@ -493,17 +493,23 @@ mfxStatus ParseInputString(char* strInput[], mfxU32 nArgNum, sInputParams* pPara
             }
 
             std::string temp = std::string(luid);
-            const std::regex pieces_regex("(0[xX][0-9a-fA-F]+):(0[xX][0-9a-fA-F]+)");
             std::smatch pieces_match;
+            try {
+                const std::regex pieces_regex("(0[xX][0-9a-fA-F]+):(0[xX][0-9a-fA-F]+)");
 
-            if (std::regex_match(temp, pieces_match, pieces_regex) && pieces_match.size() == 3) {
-                pParams->luid.HighPart = std::strtol(pieces_match[1].str().c_str(), 0, 16);
-                pParams->luid.LowPart  = std::strtol(pieces_match[2].str().c_str(), 0, 16);
+                if (std::regex_match(temp, pieces_match, pieces_regex) &&
+                    pieces_match.size() == 3) {
+                    pParams->luid.HighPart = std::strtol(pieces_match[1].str().c_str(), 0, 16);
+                    pParams->luid.LowPart  = std::strtol(pieces_match[2].str().c_str(), 0, 16);
+                }
+                else {
+                    PrintHelp(
+                        strInput[0],
+                        "error: '-luid' arguments is invalid, please, use format: HighPart:LowPart\n");
+                    return MFX_ERR_UNSUPPORTED;
+                }
             }
-            else {
-                PrintHelp(
-                    strInput[0],
-                    "error: '-luid' arguments is invalid, please, use format: HighPart:LowPart\n");
+            catch (const std::regex_error&) {
                 return MFX_ERR_UNSUPPORTED;
             }
         }
@@ -526,19 +532,25 @@ mfxStatus ParseInputString(char* strInput[], mfxU32 nArgNum, sInputParams* pPara
 
             // template: <domain:bus:device.function>
             std::string temp = std::string(deviceInfo);
-            const std::regex pieces_regex("([0-9]+):([0-9]+):([0-9]+).([0-9]+)");
             std::smatch pieces_match;
+            try {
+                const std::regex pieces_regex("([0-9]+):([0-9]+):([0-9]+).([0-9]+)");
 
-            if (std::regex_match(temp, pieces_match, pieces_regex) && pieces_match.size() == 5) {
-                pParams->PCIDomain      = std::atoi(pieces_match[1].str().c_str());
-                pParams->PCIBus         = std::atoi(pieces_match[2].str().c_str());
-                pParams->PCIDevice      = std::atoi(pieces_match[3].str().c_str());
-                pParams->PCIFunction    = std::atoi(pieces_match[4].str().c_str());
-                pParams->PCIDeviceSetup = true;
+                if (std::regex_match(temp, pieces_match, pieces_regex) &&
+                    pieces_match.size() == 5) {
+                    pParams->PCIDomain      = std::atoi(pieces_match[1].str().c_str());
+                    pParams->PCIBus         = std::atoi(pieces_match[2].str().c_str());
+                    pParams->PCIDevice      = std::atoi(pieces_match[3].str().c_str());
+                    pParams->PCIFunction    = std::atoi(pieces_match[4].str().c_str());
+                    pParams->PCIDeviceSetup = true;
+                }
+                else {
+                    PrintHelp(strInput[0],
+                              "format of -pci is invalid, please, use: domain:bus:device.function");
+                    return MFX_ERR_UNSUPPORTED;
+                }
             }
-            else {
-                PrintHelp(strInput[0],
-                          "format of -pci is invalid, please, use: domain:bus:device.function");
+            catch (const std::regex_error&) {
                 return MFX_ERR_UNSUPPORTED;
             }
         }
@@ -840,14 +852,21 @@ mfxStatus ParseInputString(char* strInput[], mfxU32 nArgNum, sInputParams* pPara
     return MFX_ERR_NONE;
 }
 
-int main(int argc, char* argv[]) {
+static int sample_decode_main(int argc, char* argv[]) {
     sInputParams Params = {}; // input parameters from command line
     CDecodingPipeline
         Pipeline; // pipeline for decoding, includes input file reader, decoder and output file writer
 
     mfxStatus sts = MFX_ERR_NONE; // return value check
 
-    sts = ParseInputString(argv, (mfxU8)argc, &Params);
+    try {
+        sts = ParseInputString(argv, (mfxU8)argc, &Params);
+    }
+    catch (...) {
+        printf("Exception in ParseInputString(). Exiting.\n");
+        return -1;
+    }
+
     if (sts == MFX_ERR_ABORTED) {
         // No error, just need to close app normally
         return MFX_ERR_NONE;
@@ -861,8 +880,14 @@ int main(int argc, char* argv[]) {
         Params.fourcc  = MFX_FOURCC_I420;
         Params.outI420 = false;
     }
-    sts = Pipeline.Init(&Params);
-    MSDK_CHECK_STATUS(sts, "Pipeline.Init failed");
+    try {
+        sts = Pipeline.Init(&Params);
+        MSDK_CHECK_STATUS(sts, "Pipeline.Init failed");
+    }
+    catch (...) {
+        printf("Exception in Pipeline.Init(). Exiting.\n");
+        return -1;
+    }
 
     // print library info
     if (Params.verSessionInit != API_1X) {
@@ -910,4 +935,14 @@ int main(int argc, char* argv[]) {
     printf("\nDecoding finished\n");
 
     return 0;
+}
+
+int main(int argc, char* argv[]) {
+    try {
+        return sample_decode_main(argc, argv);
+    }
+    catch (...) {
+        printf("Exception in sample_decode_main(). Results may be invalid.\n");
+        return -1;
+    }
 }

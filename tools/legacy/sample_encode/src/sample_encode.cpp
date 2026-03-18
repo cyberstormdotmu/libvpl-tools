@@ -701,21 +701,26 @@ mfxStatus ParseAdditionalParams(char* strInput[],
 
         // template: <domain:bus:device.function>
         std::string temp = std::string(deviceInfo);
-        const std::regex pieces_regex("([0-9]+):([0-9]+):([0-9]+).([0-9]+)");
         std::smatch pieces_match;
+        try {
+            const std::regex pieces_regex("([0-9]+):([0-9]+):([0-9]+).([0-9]+)");
 
-        // pieces_match = [full match, PCIDomain, PCIBus, PCIDevice, PCIFunction]
-        if (std::regex_match(temp, pieces_match, pieces_regex) && pieces_match.size() == 5) {
-            pParams->PCIDomain      = std::atoi(pieces_match[1].str().c_str());
-            pParams->PCIBus         = std::atoi(pieces_match[2].str().c_str());
-            pParams->PCIDevice      = std::atoi(pieces_match[3].str().c_str());
-            pParams->PCIFunction    = std::atoi(pieces_match[4].str().c_str());
-            pParams->PCIDeviceSetup = true;
+            // pieces_match = [full match, PCIDomain, PCIBus, PCIDevice, PCIFunction]
+            if (std::regex_match(temp, pieces_match, pieces_regex) && pieces_match.size() == 5) {
+                pParams->PCIDomain      = std::atoi(pieces_match[1].str().c_str());
+                pParams->PCIBus         = std::atoi(pieces_match[2].str().c_str());
+                pParams->PCIDevice      = std::atoi(pieces_match[3].str().c_str());
+                pParams->PCIFunction    = std::atoi(pieces_match[4].str().c_str());
+                pParams->PCIDeviceSetup = true;
+            }
+            else {
+                PrintHelp(
+                    strInput[0],
+                    "error: format of '-pci' arguments is invalid, please, use: domain:bus:device.function \n");
+                return MFX_ERR_UNSUPPORTED;
+            }
         }
-        else {
-            PrintHelp(
-                strInput[0],
-                "error: format of '-pci' arguments is invalid, please, use: domain:bus:device.function \n");
+        catch (const std::regex_error&) {
             return MFX_ERR_UNSUPPORTED;
         }
     }
@@ -731,18 +736,23 @@ mfxStatus ParseAdditionalParams(char* strInput[],
         }
 
         std::string temp = std::string(luid);
-        const std::regex pieces_regex("(0[xX][0-9a-fA-F]+):(0[xX][0-9a-fA-F]+)");
         std::smatch pieces_match;
+        try {
+            const std::regex pieces_regex("(0[xX][0-9a-fA-F]+):(0[xX][0-9a-fA-F]+)");
 
-        // pieces_match = [full match, HighPart, LowPart]
-        if (std::regex_match(temp, pieces_match, pieces_regex) && pieces_match.size() == 3) {
-            pParams->luid.HighPart = std::strtol(pieces_match[1].str().c_str(), 0, 16);
-            pParams->luid.LowPart  = std::strtol(pieces_match[2].str().c_str(), 0, 16);
+            // pieces_match = [full match, HighPart, LowPart]
+            if (std::regex_match(temp, pieces_match, pieces_regex) && pieces_match.size() == 3) {
+                pParams->luid.HighPart = std::strtol(pieces_match[1].str().c_str(), 0, 16);
+                pParams->luid.LowPart  = std::strtol(pieces_match[2].str().c_str(), 0, 16);
+            }
+            else {
+                PrintHelp(
+                    strInput[0],
+                    "error: format of '-luid' arguments is invalid, please, use: HighPart:LowPart \n");
+                return MFX_ERR_UNSUPPORTED;
+            }
         }
-        else {
-            PrintHelp(
-                strInput[0],
-                "error: format of '-luid' arguments is invalid, please, use: HighPart:LowPart \n");
+        catch (const std::regex_error&) {
             return MFX_ERR_UNSUPPORTED;
         }
     }
@@ -1883,25 +1893,37 @@ CEncodingPipeline* CreatePipeline(const sInputParams& params) {
 #ifdef MOD_ENC
     MOD_ENC_CREATE_PIPELINE;
 #endif
-    if (params.UseRegionEncode) {
-        return new CRegionEncodingPipeline;
+    try {
+        if (params.UseRegionEncode) {
+            return new CRegionEncodingPipeline;
+        }
+        else if (params.nRotationAngle) {
+            return new CUserPipeline;
+        }
+        else {
+            return new CEncodingPipeline;
+        }
     }
-    else if (params.nRotationAngle) {
-        return new CUserPipeline;
-    }
-    else {
-        return new CEncodingPipeline;
+    catch (...) {
+        printf("Exception in CreatePipeline(). Exiting.\n");
+        return nullptr;
     }
 }
 
-int main(int argc, char* argv[]) {
+static int sample_encode_main(int argc, char* argv[]) {
     sInputParams Params = {}; // input parameters from command line
     std::unique_ptr<CEncodingPipeline> pPipeline;
 
     mfxStatus sts = MFX_ERR_NONE; // return value check
 
     // Parsing Input stream workign with presets
-    sts = ParseInputString(argv, (mfxU8)argc, &Params);
+    try {
+        sts = ParseInputString(argv, (mfxU8)argc, &Params);
+    }
+    catch (...) {
+        printf("Exception in ParseInputString(). Exiting.\n");
+        return -1;
+    }
 
     ModifyParamsUsingPresets(Params);
 
@@ -1958,4 +1980,14 @@ int main(int argc, char* argv[]) {
     printf("\nProcessing finished\n");
 
     return 0;
+}
+
+int main(int argc, char* argv[]) {
+    try {
+        return sample_encode_main(argc, argv);
+    }
+    catch (...) {
+        printf("Exception in sample_encode_main(). Results may be invalid.\n");
+        return -1;
+    }
 }

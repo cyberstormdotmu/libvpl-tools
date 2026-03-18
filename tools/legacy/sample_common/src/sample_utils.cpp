@@ -915,7 +915,9 @@ mfxStatus CIVFFrameReader::ReadNextFrame(mfxBitstream* pBS) {
 
     //check if bitstream has enough space to hold the frame
     if (nBytesInFrame > pBS->MaxLength - pBS->DataLength - pBS->DataOffset) {
-        fseek(m_fSource, -long(sizeof(nBytesInFrame)), SEEK_CUR);
+        int err = fseek(m_fSource, -long(sizeof(nBytesInFrame)), SEEK_CUR);
+        if (err)
+            return MFX_ERR_UNDEFINED_BEHAVIOR; // avoid warning if fseek() fails
         return MFX_ERR_NOT_ENOUGH_BUFFER;
     }
 
@@ -958,7 +960,9 @@ mfxStatus CIVFFrameWriter::WriteFrameHeader() {
 
 void CIVFFrameWriter::UpdateNumberOfFrames() {
     if (m_fSource) {
-        fseek(m_fSource, 24, SEEK_SET);
+        int err = fseek(m_fSource, 24, SEEK_SET);
+        if (err)
+            return; // avoid warning if fseek() fails
         fwrite(&m_frameNum, 1, sizeof(mfxU32), m_fSource);
     }
 }
@@ -2932,34 +2936,39 @@ mfxStatus SetParameter(mfxConfigInterface* config_interface,
 }
 
 mfxStatus SetParameters(mfxSession session, MfxVideoParamsWrapper& par, const std::string& params) {
-    mfxConfigInterface* config_interface = nullptr;
-    mfxStatus sts;
-    std::string params_str(params.begin(), params.end());
-    std::string params_delim(":");
-    sts = MFXGetConfigInterface(session, &config_interface);
-    if (sts != MFX_ERR_NONE) {
-        // printf("!! %d\n", sts);
-        return sts;
-    }
-
-    size_t pos       = 0;
-    size_t delim_pos = params_str.find(params_delim, pos);
-    // SetParameter treats an empty string as a valid no-op so we don't have to detect it here.
-    while (delim_pos != std::string::npos) {
-        size_t delim = delim_pos - pos;
-        // std::cout << pos << ", " << delim_pos << " : " << params_str.substr(pos, delim)
-        //           << std::endl;
-        sts = SetParameter(config_interface, par, params_str.substr(pos, delim));
+    // string processing may throw various exceptions based on the input - catch and return error
+    try {
+        mfxConfigInterface* config_interface = nullptr;
+        std::string params_str(params.begin(), params.end());
+        std::string params_delim(":");
+        mfxStatus sts = MFXGetConfigInterface(session, &config_interface);
         if (sts != MFX_ERR_NONE) {
+            // printf("!! %d\n", sts);
             return sts;
         }
-        pos       = pos + delim + params_delim.length();
-        delim_pos = params_str.find(params_delim, pos);
+
+        size_t pos       = 0;
+        size_t delim_pos = params_str.find(params_delim, pos);
+        // SetParameter treats an empty string as a valid no-op so we don't have to detect it here.
+        while (delim_pos != std::string::npos) {
+            size_t delim = delim_pos - pos;
+            // std::cout << pos << ", " << delim_pos << " : " << params_str.substr(pos, delim)
+            //           << std::endl;
+            sts = SetParameter(config_interface, par, params_str.substr(pos, delim));
+            if (sts != MFX_ERR_NONE) {
+                return sts;
+            }
+            pos       = pos + delim + params_delim.length();
+            delim_pos = params_str.find(params_delim, pos);
+        }
+        if (pos < params_str.length()) {
+            sts = SetParameter(config_interface, par, params_str.substr(pos));
+        }
+        return sts;
     }
-    if (pos < params_str.length()) {
-        sts = SetParameter(config_interface, par, params_str.substr(pos));
+    catch (...) {
+        return MFX_ERR_INVALID_VIDEO_PARAM;
     }
-    return sts;
 }
 
 // read value of environment variable as U32

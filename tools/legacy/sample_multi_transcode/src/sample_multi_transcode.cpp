@@ -135,7 +135,13 @@ mfxStatus Launcher::Init(int argc, char* argv[]) {
 
     // parse input par file
     CmdProcessor parser;
-    sts = parser.ParseCmdLine(argc, argv);
+    try {
+        sts = parser.ParseCmdLine(argc, argv);
+    }
+    catch (...) {
+        printf("Exception in ParseCmdLine()\n");
+        return MFX_ERR_INVALID_VIDEO_PARAM;
+    }
     MSDK_CHECK_PARSE_RESULT(sts, MFX_ERR_NONE, sts);
     if (sts == MFX_WRN_OUT_OF_RANGE) {
         // There's no error in parameters parsing, but we should not continue further. For instance, in case of -? option
@@ -342,11 +348,11 @@ mfxStatus Launcher::Init(int argc, char* argv[]) {
         if (m_eDevType == MFX_HANDLE_VA_DISPLAY) {
             if (bNeedToCreateDevice) {
                 mfxI32 libvaBackend = 0;
-                mfxAllocatorParams* pAllocParam(new vaapiAllocatorParams);
+                auto pAllocParam    = std::make_shared<vaapiAllocatorParams>();
                 std::unique_ptr<CHWDevice> hwdev;
 
                 vaapiAllocatorParams* pVAAPIParams =
-                    dynamic_cast<vaapiAllocatorParams*>(pAllocParam);
+                    dynamic_cast<vaapiAllocatorParams*>(pAllocParam.get());
                 /* The last param set in vector always describe VPP+ENCODE or Only VPP
                  * So, if we want to do rendering we need to do pass HWDev to CTranscodingPipeline */
                 if (m_InputParamsArray[m_InputParamsArray.size() - 1].eModeExt == VppCompOnly) {
@@ -453,7 +459,7 @@ mfxStatus Launcher::Init(int argc, char* argv[]) {
                     pVAAPIParams->m_dpy = (VADisplay)hdl;
                 }
 
-                m_pAllocParams.push_back(std::shared_ptr<mfxAllocatorParams>(pAllocParam));
+                m_pAllocParams.push_back(pAllocParam);
                 m_hwdevs.push_back(std::move(hwdev));
                 hdls.push_back(hdl);
             }

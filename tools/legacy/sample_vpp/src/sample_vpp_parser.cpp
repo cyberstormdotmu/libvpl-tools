@@ -1579,11 +1579,15 @@ mfxStatus vppParseInputString(char* strInput[],
 
                 VAL_CHECK(1 + i == nArgNum);
                 i++;
-                msdk_opt_read(strInput[i], pParams->roiCheckParam.srcSeed);
+                if (MFX_ERR_NONE != msdk_opt_read(strInput[i], pParams->roiCheckParam.srcSeed)) {
+                    return MFX_ERR_UNSUPPORTED;
+                }
 
                 VAL_CHECK(1 + i == nArgNum);
                 i++;
-                msdk_opt_read(strInput[i], pParams->roiCheckParam.dstSeed);
+                if (MFX_ERR_NONE != msdk_opt_read(strInput[i], pParams->roiCheckParam.dstSeed)) {
+                    return MFX_ERR_UNSUPPORTED;
+                }
             }
             //-----------------------------------------------------------------------------------
             else if (msdk_match(strInput[i], "-i")) {
@@ -1748,17 +1752,23 @@ mfxStatus vppParseInputString(char* strInput[],
                 }
 
                 std::string temp = std::string(luid);
-                const std::regex pieces_regex("(0[xX][0-9a-fA-F]+):(0[xX][0-9a-fA-F]+)");
                 std::smatch pieces_match;
+                try {
+                    const std::regex pieces_regex("(0[xX][0-9a-fA-F]+):(0[xX][0-9a-fA-F]+)");
 
-                // pieces_match = [full match, HighPart, LowPart]
-                if (std::regex_match(temp, pieces_match, pieces_regex) &&
-                    pieces_match.size() == 3) {
-                    pParams->luid.HighPart = std::strtol(pieces_match[1].str().c_str(), 0, 16);
-                    pParams->luid.LowPart  = std::strtol(pieces_match[2].str().c_str(), 0, 16);
+                    // pieces_match = [full match, HighPart, LowPart]
+                    if (std::regex_match(temp, pieces_match, pieces_regex) &&
+                        pieces_match.size() == 3) {
+                        pParams->luid.HighPart = std::strtol(pieces_match[1].str().c_str(), 0, 16);
+                        pParams->luid.LowPart  = std::strtol(pieces_match[2].str().c_str(), 0, 16);
+                    }
+                    else {
+                        printf(
+                            "error: format of -LUID is invalid, please, use: HighPart:LowPart\n");
+                        return MFX_ERR_UNSUPPORTED;
+                    }
                 }
-                else {
-                    printf("error: format of -LUID is invalid, please, use: HighPart:LowPart\n");
+                catch (const std::regex_error&) {
                     return MFX_ERR_UNSUPPORTED;
                 }
             }
@@ -1778,20 +1788,26 @@ mfxStatus vppParseInputString(char* strInput[],
 
                 // template: <domain:bus:device.function>
                 std::string temp = std::string(deviceInfo);
-                const std::regex pieces_regex("([0-9]+):([0-9]+):([0-9]+).([0-9]+)");
                 std::smatch pieces_match;
+                try {
+                    const std::regex pieces_regex("([0-9]+):([0-9]+):([0-9]+).([0-9]+)");
 
-                // pieces_match = [full match, PCIDomain, PCIBus, PCIDevice, PCIFunction]
-                if (std::regex_match(temp, pieces_match, pieces_regex) &&
-                    pieces_match.size() == 5) {
-                    pParams->PCIDomain      = std::atoi(pieces_match[1].str().c_str());
-                    pParams->PCIBus         = std::atoi(pieces_match[2].str().c_str());
-                    pParams->PCIDevice      = std::atoi(pieces_match[3].str().c_str());
-                    pParams->PCIFunction    = std::atoi(pieces_match[4].str().c_str());
-                    pParams->PCIDeviceSetup = true;
+                    // pieces_match = [full match, PCIDomain, PCIBus, PCIDevice, PCIFunction]
+                    if (std::regex_match(temp, pieces_match, pieces_regex) &&
+                        pieces_match.size() == 5) {
+                        pParams->PCIDomain      = std::atoi(pieces_match[1].str().c_str());
+                        pParams->PCIBus         = std::atoi(pieces_match[2].str().c_str());
+                        pParams->PCIDevice      = std::atoi(pieces_match[3].str().c_str());
+                        pParams->PCIFunction    = std::atoi(pieces_match[4].str().c_str());
+                        pParams->PCIDeviceSetup = true;
+                    }
+                    else {
+                        printf(
+                            "format of -pci is invalid, please, use: domain:bus:device.function");
+                        return MFX_ERR_UNSUPPORTED;
+                    }
                 }
-                else {
-                    printf("format of -pci is invalid, please, use: domain:bus:device.function");
+                catch (const std::regex_error&) {
                     return MFX_ERR_UNSUPPORTED;
                 }
             }
@@ -1816,7 +1832,9 @@ mfxStatus vppParseInputString(char* strInput[],
             else if (msdk_match(strInput[i], "-AdapterNum")) {
                 VAL_CHECK(1 + i == nArgNum);
                 i++;
-                msdk_opt_read(strInput[i], pParams->adapterNum);
+                if (MFX_ERR_NONE != msdk_opt_read(strInput[i], pParams->adapterNum)) {
+                    return MFX_ERR_UNSUPPORTED;
+                }
             }
             else if (msdk_match(strInput[i], "-dispatcher:fullSearch")) {
                 pParams->dispFullSearch = true;

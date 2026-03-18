@@ -20,13 +20,18 @@ SMTTracer::~SMTTracer() {
     AdjustOverlappingEvents();
     AddFlowEvents();
     mfxU32 FileID = 0xfffffff & GetCurrentTS();
-    SaveTrace(FileID);
 
-    ComputeE2ELatency();
-    SaveLatency(LatencyType::E2E, FileID, E2ELatency);
+    try {
+        SaveTrace(FileID);
+        ComputeE2ELatency();
+        SaveLatency(LatencyType::E2E, FileID, E2ELatency);
 
-    ComputeEncLatency();
-    SaveLatency(LatencyType::ENC, FileID, EncLatency);
+        ComputeEncLatency();
+        SaveLatency(LatencyType::ENC, FileID, EncLatency);
+    }
+    catch (...) {
+        printf("Exception in ~SMTTracer(). Trace files may be invalid.\n");
+    }
 }
 
 void SMTTracer::Init(const PipelineType type,

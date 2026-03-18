@@ -103,33 +103,36 @@ VPLImplementationLoader::VPLImplementationLoader()
 VPLImplementationLoader::~VPLImplementationLoader() {}
 
 mfxStatus VPLImplementationLoader::CreateConfig(char const* data, const char* propertyName) {
-    mfxConfig cfg = MFXCreateConfig(m_Loader);
-    mfxVariant variant;
-    variant.Type     = MFX_VARIANT_TYPE_PTR;
-    variant.Data.Ptr = mfxHDL(data);
-    mfxStatus sts    = MFXSetConfigFilterProperty(cfg, (mfxU8*)propertyName, variant);
+    mfxConfig cfg           = MFXCreateConfig(m_Loader);
+    mfxVariant variant      = {};
+    variant.Version.Version = MFX_VARIANT_VERSION;
+    variant.Type            = MFX_VARIANT_TYPE_PTR;
+    variant.Data.Ptr        = mfxHDL(data);
+    mfxStatus sts           = MFXSetConfigFilterProperty(cfg, (mfxU8*)propertyName, variant);
     MSDK_CHECK_STATUS(sts, "MFXSetConfigFilterProperty failed");
 
     return sts;
 }
 
 mfxStatus VPLImplementationLoader::CreateConfig(mfxU16 data, const char* propertyName) {
-    mfxConfig cfg = MFXCreateConfig(m_Loader);
-    mfxVariant variant;
-    variant.Type     = MFX_VARIANT_TYPE_U16;
-    variant.Data.U32 = data;
-    mfxStatus sts    = MFXSetConfigFilterProperty(cfg, (mfxU8*)propertyName, variant);
+    mfxConfig cfg           = MFXCreateConfig(m_Loader);
+    mfxVariant variant      = {};
+    variant.Version.Version = MFX_VARIANT_VERSION;
+    variant.Type            = MFX_VARIANT_TYPE_U16;
+    variant.Data.U32        = data;
+    mfxStatus sts           = MFXSetConfigFilterProperty(cfg, (mfxU8*)propertyName, variant);
     MSDK_CHECK_STATUS(sts, "MFXSetConfigFilterProperty failed");
 
     return sts;
 }
 
 mfxStatus VPLImplementationLoader::CreateConfig(mfxU32 data, const char* propertyName) {
-    mfxConfig cfg = MFXCreateConfig(m_Loader);
-    mfxVariant variant;
-    variant.Type     = MFX_VARIANT_TYPE_U32;
-    variant.Data.U32 = data;
-    mfxStatus sts    = MFXSetConfigFilterProperty(cfg, (mfxU8*)propertyName, variant);
+    mfxConfig cfg           = MFXCreateConfig(m_Loader);
+    mfxVariant variant      = {};
+    variant.Version.Version = MFX_VARIANT_VERSION;
+    variant.Type            = MFX_VARIANT_TYPE_U32;
+    variant.Data.U32        = data;
+    mfxStatus sts           = MFXSetConfigFilterProperty(cfg, (mfxU8*)propertyName, variant);
     MSDK_CHECK_STATUS(sts, "MFXSetConfigFilterProperty failed");
 
     return sts;
@@ -157,9 +160,10 @@ mfxStatus VPLImplementationLoader::ConfigureImplementation(mfxIMPL impl) {
         return MFX_ERR_UNSUPPORTED;
     }
 
-    mfxVariant ImplVariant;
-    ImplVariant.Type     = MFX_VARIANT_TYPE_U32;
-    ImplVariant.Data.U32 = m_Impl;
+    mfxVariant ImplVariant      = {};
+    ImplVariant.Version.Version = MFX_VARIANT_VERSION;
+    ImplVariant.Type            = MFX_VARIANT_TYPE_U32;
+    ImplVariant.Data.U32        = m_Impl;
     mfxStatus sts =
         MFXSetConfigFilterProperty(cfgImpl, (mfxU8*)"mfxImplDescription.Impl", ImplVariant);
     MSDK_CHECK_STATUS(sts, "MFXSetConfigFilterProperty failed");
@@ -244,11 +248,16 @@ void VPLImplementationLoader::SetAdapterType(mfxU16 adapterType) {
     else if (adapterType != mfxMediaAdapterType::MFX_MEDIA_UNKNOWN) {
         m_adapterType = adapterType;
 
-        std::stringstream ss;
-        std::cout << "CONFIGURE LOADER: required adapter type: "
-                  << (m_adapterType == mfxMediaAdapterType::MFX_MEDIA_INTEGRATED ? "integrated"
-                                                                                 : "discrete")
-                  << std::endl;
+        try {
+            std::stringstream ss;
+            std::cout << "CONFIGURE LOADER: required adapter type: "
+                      << (m_adapterType == mfxMediaAdapterType::MFX_MEDIA_INTEGRATED ? "integrated"
+                                                                                     : "discrete")
+                      << std::endl;
+        }
+        catch (...) {
+            printf("Exception in SetAdapterType().\n");
+        }
     }
 }
 
@@ -505,10 +514,15 @@ std::pair<mfxI16, mfxI32> VPLImplementationLoader::GetDeviceIDAndAdapter() const
         return result;
 
     std::string deviceAdapterInfo(m_idesc->Dev.DeviceID);
-    std::regex pattern("([0-9a-fA-F]+)(?:/([0-9]|[1-9][0-9]+))?");
     std::smatch match;
-    if (!std::regex_match(deviceAdapterInfo, match, pattern))
+    try {
+        const std::regex pattern("([0-9a-fA-F]+)(?:/([0-9]|[1-9][0-9]+))?");
+        if (!std::regex_match(deviceAdapterInfo, match, pattern))
+            return result;
+    }
+    catch (const std::regex_error&) {
         return result;
+    }
 
     try {
         result.first = std::stoi(match[1].str(), 0, 16);
@@ -552,24 +566,29 @@ mfxStatus MainVideoSession::PrintLibInfo(VPLImplementationLoader* Loader) {
     printf("    Adapter number : %d \n", Loader->GetDeviceIDAndAdapter().second);
 
     // Media Adapter Type
-    if (Loader->GetImplType() == MFX_IMPL_TYPE_SOFTWARE) {
-        std::stringstream ss;
-        ss << "    Adapter type: cpu" << std::endl;
-        printf("%s", ss.str().c_str());
-    }
-    else {
-        mfxPlatform platform = {};
-        sts                  = MFXVideoCORE_QueryPlatform(m_session, &platform);
-        MSDK_CHECK_STATUS(sts, "Failed to query platform");
-        if (platform.MediaAdapterType != mfxMediaAdapterType::MFX_MEDIA_UNKNOWN) {
+    try {
+        if (Loader->GetImplType() == MFX_IMPL_TYPE_SOFTWARE) {
             std::stringstream ss;
-            ss << "    Adapter type: "
-               << (platform.MediaAdapterType == mfxMediaAdapterType::MFX_MEDIA_INTEGRATED
-                       ? "integrated"
-                       : "discrete");
-            ss << std::endl;
+            ss << "    Adapter type: cpu" << std::endl;
             printf("%s", ss.str().c_str());
         }
+        else {
+            mfxPlatform platform = {};
+            sts                  = MFXVideoCORE_QueryPlatform(m_session, &platform);
+            MSDK_CHECK_STATUS(sts, "Failed to query platform");
+            if (platform.MediaAdapterType != mfxMediaAdapterType::MFX_MEDIA_UNKNOWN) {
+                std::stringstream ss;
+                ss << "    Adapter type: "
+                   << (platform.MediaAdapterType == mfxMediaAdapterType::MFX_MEDIA_INTEGRATED
+                           ? "integrated"
+                           : "discrete");
+                ss << std::endl;
+                printf("%s", ss.str().c_str());
+            }
+        }
+    }
+    catch (...) {
+        printf("Exception in PrintLibInfo().\n");
     }
 
     // Module Name

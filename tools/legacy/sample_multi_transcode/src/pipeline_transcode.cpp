@@ -157,6 +157,8 @@ CTranscodingPipeline::CTranscodingPipeline()
           m_FrameNumberPreference(0xFFFFFFFF),
           m_MaxFramesForTranscode(0xFFFFFFFF),
           m_MaxFramesForEncode(0),
+          m_ExactNframe(0),
+          m_Prolonged(0),
           m_pBSProcessor(NULL),
           m_nReqFrameTime(0),
           statisticsWindowSize(0),
@@ -4375,8 +4377,11 @@ mfxStatus CTranscodingPipeline::Init(sInputParams* pParams,
 
     // common session settings
     mfxU32 version = MakeVersion(m_Version.Major, m_Version.Minor);
-    if (version >= 1001 && pParams->libType != MFX_IMPL_SOFTWARE)
+    if (version >= 1001 && pParams->libType != MFX_IMPL_SOFTWARE) {
         sts = m_pmfxSession->SetPriority(pParams->priority);
+        if (sts)
+            printf("WARNING - m_pmfxSession->SetPriority returned %d\n", sts);
+    }
 
     m_bIsInterOrJoined = pParams->eMode == Sink || pParams->eMode == Source || pParams->bIsJoin;
 
@@ -5412,7 +5417,9 @@ mfxStatus FileBitstreamProcessor::ResetInput() {
 
 mfxStatus FileBitstreamProcessor::ResetOutput() {
     if (m_pFileWriter.get()) {
-        m_pFileWriter->Reset();
+        mfxStatus sts = m_pFileWriter->Reset();
+        if (sts)
+            return sts;
     }
     return MFX_ERR_NONE;
 }

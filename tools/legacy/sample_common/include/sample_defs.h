@@ -119,30 +119,48 @@ enum LibVABackend {
 #define MSDK_MAX_FILENAME_LEN            1024
 #define MSDK_MAX_USER_DATA_UNREG_SEI_LEN 80
 
-#define MSDK_PRINT_RET_MSG(ERR, MSG)                                                    \
-    {                                                                                   \
-        std::stringstream tmpStr1;                                                      \
-        tmpStr1 << std::endl                                                            \
-                << "[ERROR], sts=" << StatusToString(ERR) << "(" << ERR << ")"          \
-                << ", " << __FUNCTION__ << ", " << MSG << " at " << __FILENAME__ << ":" \
-                << __LINE__ << std::endl;                                               \
-        std::cerr << tmpStr1.str();                                                     \
+#define MSDK_PRINT_RET_MSG(ERR, MSG)                                                        \
+    {                                                                                       \
+        try {                                                                               \
+            std::stringstream tmpStr1;                                                      \
+            tmpStr1 << std::endl                                                            \
+                    << "[ERROR], sts=" << StatusToString(ERR) << "(" << ERR << ")"          \
+                    << ", " << __FUNCTION__ << ", " << MSG << " at " << __FILENAME__ << ":" \
+                    << __LINE__ << std::endl;                                               \
+            std::cerr << tmpStr1.str();                                                     \
+        }                                                                                   \
+        catch (...) {                                                                       \
+            /* use printf to avoid unhandled exception warnings  */                         \
+            printf("Exception in MSDK_PRINT_RET_MSG\n");                                    \
+        }                                                                                   \
     }
 
-#define MSDK_PRINT_WRN_MSG(WRN, MSG)                                                    \
-    {                                                                                   \
-        std::stringstream tmpStr1;                                                      \
-        tmpStr1 << std::endl                                                            \
-                << "[WARNING], sts=" << StatusToString(WRN) << "(" << WRN << ")"        \
-                << ", " << __FUNCTION__ << ", " << MSG << " at " << __FILENAME__ << ":" \
-                << __LINE__ << std::endl;                                               \
-        std::cerr << tmpStr1.str();                                                     \
+#define MSDK_PRINT_WRN_MSG(WRN, MSG)                                                        \
+    {                                                                                       \
+        try {                                                                               \
+            std::stringstream tmpStr1;                                                      \
+            tmpStr1 << std::endl                                                            \
+                    << "[WARNING], sts=" << StatusToString(WRN) << "(" << WRN << ")"        \
+                    << ", " << __FUNCTION__ << ", " << MSG << " at " << __FILENAME__ << ":" \
+                    << __LINE__ << std::endl;                                               \
+            std::cerr << tmpStr1.str();                                                     \
+        }                                                                                   \
+        catch (...) {                                                                       \
+            /* use printf to avoid unhandled exception warnings  */                         \
+            printf("Exception in MSDK_PRINT_WRN_MSG\n");                                    \
+        }                                                                                   \
     }
 
-#define MSDK_TRACE_LEVEL(level, ERR)                                                  \
-    if (level <= msdk_trace_get_level()) {                                            \
-        std::cerr << __FILENAME__ << " :" << __LINE__ << " [" << level << "] " << ERR \
-                  << std::endl;                                                       \
+#define MSDK_TRACE_LEVEL(level, ERR)                                                      \
+    if (level <= msdk_trace_get_level()) {                                                \
+        try {                                                                             \
+            std::cerr << __FILENAME__ << " :" << __LINE__ << " [" << level << "] " << ERR \
+                      << std::endl;                                                       \
+        }                                                                                 \
+        catch (...) {                                                                     \
+            /* use printf to avoid unhandled exception warnings  */                       \
+            printf("Exception in MSDK_TRACE_LEVEL\n");                                    \
+        }                                                                                 \
     }
 
 #define MSDK_TRACE_CRITICAL(ERR) MSDK_TRACE_LEVEL(MSDK_TRACE_LEVEL_CRITICAL, ERR)
@@ -151,24 +169,38 @@ enum LibVABackend {
 #define MSDK_TRACE_INFO(ERR)     MSDK_TRACE_LEVEL(MSDK_TRACE_LEVEL_INFO, ERR)
 #define MSDK_TRACE_DEBUG(ERR)    MSDK_TRACE_LEVEL(MSDK_TRACE_LEVEL_DEBUG, ERR)
 
-#define MSDK_CHECK_ERROR(P, X, ERR)                         \
-    {                                                       \
-        if ((X) == (P)) {                                   \
-            std::stringstream tmpStr2;                      \
-            tmpStr2 << #X << "==" << #P << " error";        \
-            MSDK_PRINT_RET_MSG(ERR, tmpStr2.str().c_str()); \
-            return ERR;                                     \
-        }                                                   \
+#define MSDK_CHECK_ERROR(P, X, ERR)                                     \
+    {                                                                   \
+        if ((X) == (P)) {                                               \
+            try {                                                       \
+                std::stringstream tmpStr2;                              \
+                tmpStr2 << #X << "==" << #P << " error";                \
+                MSDK_PRINT_RET_MSG(ERR, tmpStr2.str().c_str());         \
+            }                                                           \
+            catch (...) {                                               \
+                /* use printf to avoid unhandled exception warnings  */ \
+                printf("Exception in MSDK_CHECK_ERROR\n");              \
+                return ERR;                                             \
+            }                                                           \
+            return ERR;                                                 \
+        }                                                               \
     }
 
-#define MSDK_CHECK_NOT_EQUAL(P, X, ERR)                     \
-    {                                                       \
-        if ((X) != (P)) {                                   \
-            std::stringstream tmpStr3;                      \
-            tmpStr3 << #X << "!=" << #P << " error";        \
-            MSDK_PRINT_RET_MSG(ERR, tmpStr3.str().c_str()); \
-            return ERR;                                     \
-        }                                                   \
+#define MSDK_CHECK_NOT_EQUAL(P, X, ERR)                                 \
+    {                                                                   \
+        if ((X) != (P)) {                                               \
+            try {                                                       \
+                std::stringstream tmpStr3;                              \
+                tmpStr3 << #X << "!=" << #P << " error";                \
+                MSDK_PRINT_RET_MSG(ERR, tmpStr3.str().c_str());         \
+            }                                                           \
+            catch (...) {                                               \
+                /* use printf to avoid unhandled exception warnings  */ \
+                printf("Exception in MSDK_CHECK_NOT_EQUAL\n");          \
+                return ERR;                                             \
+            }                                                           \
+            return ERR;                                                 \
+        }                                                               \
     }
 
 #define MSDK_CHECK_STATUS(X, MSG)       \
@@ -230,23 +262,37 @@ enum LibVABackend {
             P = MFX_ERR_NONE;     \
         }                         \
     }
-#define MSDK_CHECK_POINTER(P, ...)                                       \
-    {                                                                    \
-        if (!(P)) {                                                      \
-            std::stringstream tmpStr4;                                   \
-            tmpStr4 << #P << " pointer is NULL";                         \
-            MSDK_PRINT_RET_MSG(MFX_ERR_NULL_PTR, tmpStr4.str().c_str()); \
-            return __VA_ARGS__;                                          \
-        }                                                                \
+#define MSDK_CHECK_POINTER(P, ...)                                           \
+    {                                                                        \
+        if (!(P)) {                                                          \
+            try {                                                            \
+                std::stringstream tmpStr4;                                   \
+                tmpStr4 << #P << " pointer is NULL";                         \
+                MSDK_PRINT_RET_MSG(MFX_ERR_NULL_PTR, tmpStr4.str().c_str()); \
+            }                                                                \
+            catch (...) {                                                    \
+                /* use printf to avoid unhandled exception warnings  */      \
+                printf("Exception in MSDK_CHECK_POINTER\n");                 \
+                return __VA_ARGS__;                                          \
+            }                                                                \
+            return __VA_ARGS__;                                              \
+        }                                                                    \
     }
-#define MSDK_CHECK_POINTER_NO_RET(P)                                     \
-    {                                                                    \
-        if (!(P)) {                                                      \
-            std::stringstream tmpStr4;                                   \
-            tmpStr4 << #P << " pointer is NULL";                         \
-            MSDK_PRINT_RET_MSG(MFX_ERR_NULL_PTR, tmpStr4.str().c_str()); \
-            return;                                                      \
-        }                                                                \
+#define MSDK_CHECK_POINTER_NO_RET(P)                                         \
+    {                                                                        \
+        if (!(P)) {                                                          \
+            try {                                                            \
+                std::stringstream tmpStr4;                                   \
+                tmpStr4 << #P << " pointer is NULL";                         \
+                MSDK_PRINT_RET_MSG(MFX_ERR_NULL_PTR, tmpStr4.str().c_str()); \
+            }                                                                \
+            catch (...) {                                                    \
+                /* use printf to avoid unhandled exception warnings  */      \
+                printf("Exception in MSDK_CHECK_POINTER_NO_RET\n");          \
+                return;                                                      \
+            }                                                                \
+            return;                                                          \
+        }                                                                    \
     }
 #define MSDK_CHECK_POINTER_SAFE(P, ERR, ADD) \
     {                                        \

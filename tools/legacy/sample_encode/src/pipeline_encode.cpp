@@ -169,6 +169,8 @@ mfxStatus CEncTaskPool::SynchronizeFirstTask(mfxU32 syncOpTimeout) {
                         if (m_pTasks[i].EncSyncP != NULL) {
                             sts = m_pmfxSession->SyncOperation(m_pTasks[i].EncSyncP,
                                                                0); //MSDK_WAIT_INTERVAL
+                            if (sts)
+                                printf("SyncOperation returned %d during hang recovery\n", sts);
                         }
                 }
                 ClearTasks();
@@ -1045,8 +1047,7 @@ mfxStatus CEncodingPipeline::AllocFrames() {
     MSDK_CHECK_STATUS(sts, "QueryIOSurf (for encoder) failed");
 
     if (!m_pmfxVPP) {
-        EncRequest.NumFrameMin = EncRequest.NumFrameSuggested =
-            std::max(EncRequest.NumFrameSuggested, m_nPerfOpt);
+        EncRequest.NumFrameSuggested = std::max(EncRequest.NumFrameSuggested, m_nPerfOpt);
     }
 
     if (EncRequest.NumFrameSuggested < m_mfxEncParams.AsyncDepth)
@@ -2445,7 +2446,6 @@ mfxStatus CEncodingPipeline::Run() {
             }
             else if (MFX_ERR_MORE_SURFACE == sts) {
                 skipLoadingNextFrame = true;
-                sts                  = MFX_ERR_NONE;
             }
             else {
                 MSDK_BREAK_ON_ERROR(sts);

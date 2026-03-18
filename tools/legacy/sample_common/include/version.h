@@ -21,7 +21,12 @@
 #endif
 
 static std::string GetToolVersion() {
-    std::stringstream ss;
-    ss << TOOLS_VERSION_MAJOR << "." << TOOLS_VERSION_MINOR << "." << TOOLS_VERSION_PATCH;
-    return ss.str();
+    try {
+        std::stringstream ss;
+        ss << TOOLS_VERSION_MAJOR << "." << TOOLS_VERSION_MINOR << "." << TOOLS_VERSION_PATCH;
+        return ss.str();
+    }
+    catch (...) {
+        return "Exception in GetToolVersion()";
+    }
 }

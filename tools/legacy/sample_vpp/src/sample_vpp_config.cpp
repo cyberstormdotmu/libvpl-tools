@@ -285,7 +285,8 @@ mfxStatus Config3dlut(sInputParams* pParams, sAppResources* pResources) {
     mfxU32 n3DLutVWidth              = seg_size * 8;
     mfxU32 n3DLutVHeight             = seg_size * mul_size;
     // 17x17x32 33x33x64 65x65x128
-    mfxU32 dim[3] = { seg_size, seg_size, mul_size };
+    mfxU32 dim[3]     = { seg_size, seg_size, mul_size };
+    mfxU32 nBytesRead = 0;
 
     if (pParams->b3dLut) {
         FILE* file;
@@ -301,13 +302,16 @@ mfxStatus Config3dlut(sInputParams* pParams, sAppResources* pResources) {
         rewind(file);
 
         pParams->lutTbl.resize(lutTblSize);
-        if (!pParams->lutTbl.data())
+        if (!pParams->lutTbl.data()) {
+            fclose(file);
             return MFX_ERR_NULL_PTR;
-        fread(pParams->lutTbl.data(), 1, lutTblSize, file);
+        }
+
+        nBytesRead = (mfxU32)fread(pParams->lutTbl.data(), 1, lutTblSize, file);
         fclose(file);
         file = NULL;
 
-        if (lutTblSize != n3DLutVHeight * n3DLutVWidth)
+        if (nBytesRead != lutTblSize || lutTblSize != n3DLutVHeight * n3DLutVWidth)
             return MFX_ERR_INVALID_VIDEO_PARAM;
 
         auto lutConfig            = pVppParam->AddExtBuffer<mfxExtVPP3DLut>();

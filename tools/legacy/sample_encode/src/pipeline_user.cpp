@@ -311,8 +311,6 @@ mfxStatus CUserPipeline::Run() {
     mfxU16 nEncSurfIdx    = 0; // index of free surface for encoder input
     mfxU16 nRotateSurfIdx = 0; // ~ for rotation plugin input
 
-    mfxSyncPoint RotateSyncPoint = NULL; // ~ with rotation plugin call
-
     sts = MFX_ERR_NONE;
 
     // main loop, preprocessing and encoding
@@ -339,12 +337,6 @@ mfxStatus CUserPipeline::Run() {
 
         nEncSurfIdx = GetFreeSurface(m_pEncSurfaces, m_EncResponse.NumFrameActual);
         MSDK_CHECK_ERROR(nEncSurfIdx, MSDK_INVALID_SURF_IDX, MFX_ERR_MEMORY_ALLOC);
-
-        // save the id of preceding rotate task which will produce input data for the encode task
-        if (RotateSyncPoint) {
-            pCurrentTask->DependentVppTasks.push_back(RotateSyncPoint);
-            RotateSyncPoint = NULL;
-        }
 
         for (;;) {
             InsertIDR(pCurrentTask->encCtrl, m_bInsertIDR);

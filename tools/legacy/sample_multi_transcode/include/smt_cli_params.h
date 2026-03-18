@@ -500,6 +500,7 @@ typedef struct sInputParams {
               eModeExt(Native),
               FrameNumberPreference(0),
               MaxFrameNumber(MFX_INFINITE),
+              prolonged(0),
               ExactNframe(0),
               numSurf4Comp(0),
               numTiles4Comp(0),

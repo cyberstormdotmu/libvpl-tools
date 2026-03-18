@@ -2001,20 +2001,26 @@ mfxStatus ParseAdditionalParams(char* argv[],
 
         // template: <domain:bus:device.function>
         std::string temp = std::string(deviceInfo.begin(), deviceInfo.end());
-        const std::regex pieces_regex("([0-9]+):([0-9]+):([0-9]+).([0-9]+)");
         std::smatch pieces_match;
+        try {
+            const std::regex pieces_regex("([0-9]+):([0-9]+):([0-9]+).([0-9]+)");
 
-        // pieces_match = [full match, PCIDomain, PCIBus, PCIDevice, PCIFunction]
-        if (std::regex_match(temp, pieces_match, pieces_regex) && pieces_match.size() == 5) {
-            InputParams.PCIDomain      = std::atoi(pieces_match[1].str().c_str());
-            InputParams.PCIBus         = std::atoi(pieces_match[2].str().c_str());
-            InputParams.PCIDevice      = std::atoi(pieces_match[3].str().c_str());
-            InputParams.PCIFunction    = std::atoi(pieces_match[4].str().c_str());
-            InputParams.PCIDeviceSetup = true;
+            // pieces_match = [full match, PCIDomain, PCIBus, PCIDevice, PCIFunction]
+            if (std::regex_match(temp, pieces_match, pieces_regex) && pieces_match.size() == 5) {
+                InputParams.PCIDomain      = std::atoi(pieces_match[1].str().c_str());
+                InputParams.PCIBus         = std::atoi(pieces_match[2].str().c_str());
+                InputParams.PCIDevice      = std::atoi(pieces_match[3].str().c_str());
+                InputParams.PCIFunction    = std::atoi(pieces_match[4].str().c_str());
+                InputParams.PCIDeviceSetup = true;
+            }
+            else {
+                PrintError(
+                    "format of -pci \"%s\" is invalid, please, use: domain:bus:device.function",
+                    argv[i]);
+                return MFX_ERR_UNSUPPORTED;
+            }
         }
-        else {
-            PrintError("format of -pci \"%s\" is invalid, please, use: domain:bus:device.function",
-                       argv[i]);
+        catch (const std::regex_error&) {
             return MFX_ERR_UNSUPPORTED;
         }
     }
@@ -2030,16 +2036,22 @@ mfxStatus ParseAdditionalParams(char* argv[],
         }
 
         std::string temp = std::string(luid.begin(), luid.end());
-        const std::regex pieces_regex("(0[xX][0-9a-fA-F]+):(0[xX][0-9a-fA-F]+)");
         std::smatch pieces_match;
+        try {
+            const std::regex pieces_regex("(0[xX][0-9a-fA-F]+):(0[xX][0-9a-fA-F]+)");
 
-        // pieces_match = [full match, HighPart, LowPart]
-        if (std::regex_match(temp, pieces_match, pieces_regex) && pieces_match.size() == 3) {
-            InputParams.luid.HighPart = std::strtol(pieces_match[1].str().c_str(), 0, 16);
-            InputParams.luid.LowPart  = std::strtol(pieces_match[2].str().c_str(), 0, 16);
+            // pieces_match = [full match, HighPart, LowPart]
+            if (std::regex_match(temp, pieces_match, pieces_regex) && pieces_match.size() == 3) {
+                InputParams.luid.HighPart = std::strtol(pieces_match[1].str().c_str(), 0, 16);
+                InputParams.luid.LowPart  = std::strtol(pieces_match[2].str().c_str(), 0, 16);
+            }
+            else {
+                PrintError("format of -LUID \"%\" is invalid, please, use: HighPart:LowPart",
+                           argv[i]);
+                return MFX_ERR_UNSUPPORTED;
+            }
         }
-        else {
-            PrintError("format of -LUID \"%\" is invalid, please, use: HighPart:LowPart", argv[i]);
+        catch (const std::regex_error&) {
             return MFX_ERR_UNSUPPORTED;
         }
     }
