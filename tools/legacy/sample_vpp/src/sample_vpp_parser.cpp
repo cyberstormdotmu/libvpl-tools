@@ -272,6 +272,9 @@ void vppPrintHelp(const char* strAppName, const char* strErrorMessage) {
         "   [-gamut:bt709]        - enable BT.709 matrix transform (RGB->YUV conversion)(def: BT.601)\n\n");
     printf("   [-frc:advanced]       - enable advanced FRC algorithm (based on PTS) \n");
     printf("   [-frc:interp]         - enable FRC based on frame interpolation algorithm\n\n");
+#ifdef ONEVPL_EXPERIMENTAL
+    printf("   [-frc:ai_interp]      - enable AI based FRC algorithm\n\n");
+#endif
 
     printf("   [-tcc:red]            - enable color saturation algorithm (R component) \n");
     printf("   [-tcc:green]          - enable color saturation algorithm (G component)\n");
@@ -295,7 +298,12 @@ void vppPrintHelp(const char* strAppName, const char* strErrorMessage) {
     printf("   [-ssinr (id)]         - specify YUV nominal range for input surface.\n");
     printf("   [-dsinr (id)]         - specify YUV nominal range for output surface.\n\n");
     printf("   [-mirror (mode)]      - mirror image using specified mode.\n");
+#ifdef ONEVPL_EXPERIMENTAL
     printf("   [-sr]                 - enable AI based super resolution.\n");
+    printf("   [-sr:0]               - enable AI based super resolution with default algorithm.\n");
+    printf("   [-sr:1]               - enable AI based super resolution with algorithm 1.\n");
+    printf("   [-sr:2]               - enable AI based super resolution with algorithm 2.\n");
+#endif
 
     printf("   [-n frames] - number of frames to VPP process\n\n");
 
@@ -1119,10 +1127,17 @@ mfxStatus vppParseInputString(char* strInput[],
                 i++;
                 msdk_opt_read(strInput[i], pParams->mirroringParam[0].Type);
             }
-            else if (msdk_match(strInput[i], "-sr")) {
-                VAL_CHECK(1 + i == nArgNum);
-
-                pParams->srParam[0].mode = VPP_FILTER_ENABLED_CONFIGURED;
+            else if (msdk_match(strInput[i], "-sr:0") || msdk_match(strInput[i], "-sr")) {
+                pParams->srParam[0].mode      = VPP_FILTER_ENABLED_CONFIGURED;
+                pParams->srParam[0].algorithm = 0;
+            }
+            else if (msdk_match(strInput[i], "-sr:1")) {
+                pParams->srParam[0].mode      = VPP_FILTER_ENABLED_CONFIGURED;
+                pParams->srParam[0].algorithm = 1;
+            }
+            else if (msdk_match(strInput[i], "-sr:2")) {
+                pParams->srParam[0].mode      = VPP_FILTER_ENABLED_CONFIGURED;
+                pParams->srParam[0].algorithm = 2;
             }
             else if (msdk_match(strInput[i], "-sw")) {
                 VAL_CHECK(1 + i == nArgNum);
