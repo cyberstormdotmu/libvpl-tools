@@ -8,6 +8,19 @@ Intel® Video Processing Library (Intel® VPL) tools provide access to hardware
 accelerated video decode, encode, and frame processing capabilities on Intel®
 GPUs from the command line.
 
+## [Unreleased]
+
+### Added
+- Support for extended decode and encode description
+  structs in vpl-inspect tool
+- Command-line switches to enable AI-based FRC and super resolution
+  in sample_vpp tool
+
+### Fixed
+- Error initializing rendering in sample_decode with modern Mesa
+- Intermittent rendering errors in sample_decode during
+  DRI3 playback
+
 ## [1.5.0] - 2025-12-08
 
 ### Added
